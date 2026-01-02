@@ -1,93 +1,115 @@
 pipeline {
     agent any
 
+    environment {
+        DOCKER_IMAGE = "kondepatisivanichowdary/k8s"
+        GIT_REPO_NAME = "REALTIMEPROJECT"
+        GIT_USER_NAME = "kondepatisivanichowdary"
+    }
+
     stages {
 
         stage('Checkout Code') {
             steps {
                 echo 'Checking out source code'
-                git branch: 'main', url: 'https://github.com/kondepatisivanichowdary/REALTIMEPROJECT.git'
+                git branch: 'main',
+                    url: 'https://github.com/kondepatisivanichowdary/REALTIMEPROJECT.git'
             }
         }
 
-        stage('Build Jar') {
+        stage('Build Application') {
             steps {
-                echo 'Running Maven build'
-                sh 'cd Application && mvn clean package'
-            }
-        }
-
-        stage('Sonar Scan') {
-            steps {
-                echo 'Running SonarQube scan'
+                echo 'Building application using Maven'
                 sh '''
                     cd Application
-                    mvn sonar:sonar \
-                      -Dsonar.host.url=http://44.203.120.255:9000 \
-                      -Dsonar.login=squ_857bc378b399cc95305af238a1c3f0e10e243415
+                    mvn clean package -B
                 '''
             }
         }
 
-        stage('Build Docker Image') {
+        stage('SonarQube Analysis') {
             steps {
-                script {
-                    echo 'Building Docker Image'
-                    sh 'cd Application && docker build -t kondepatisivanichowdary/k8s:${BUILD_NUMBER} .'
-                }
-            }
-        }
-
-        stage('Docker Image Scan') {
-            steps {
-                sh 'trivy image kondepatisivanichowdary/k8s:${BUILD_NUMBER}'
-            }
-        }
-
-        stage('Push Image to DockerHub') {
-            steps {
-                script {
-                    withCredentials([string(credentialsId: 'dockerhub', variable: 'dockerhub')]) {
-                        sh 'echo "${dockerhub}" | docker login -u kondepatisivanichowdary --password-stdin'
-                    }
-                    sh 'docker push kondepatisivanichowdary/k8s:${BUILD_NUMBER}'
-                }
-            }
-        }
-
-        stage('Update Kubernetes Deployment Manifest File') {
-            environment {
-                GIT_REPO_NAME = "REALTIMEPROJECT"
-                GIT_USER_NAME = "kondepatisivanichowdary"
-            }
-            steps {
-                withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
+                echo 'Running SonarQube Scan'
+                withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
                     sh '''
-                        git config user.email "kondepatisivanichowdary@gmail.com"
-                        git config user.name "kondepatisivanichowdary"
-
-                        sed -i "s|k8s:.*|k8s:${BUILD_NUMBER}|g" Ansible/k8s_deployment.yaml
-
-                        git add .
-                        git commit -m "Update deployment image tag to version ${BUILD_NUMBER}"
-                        git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main
+                        cd Application
+                        mvn sonar:sonar \
+                          -Dsonar.host.url=http://13.222.102.97:9000 \
+                          -Dsonar.login=$SONAR_TOKEN
                     '''
                 }
             }
         }
 
-        stage('K8s Deployment using Ansible') {
+        stage('Build Docker Image') {
             steps {
-                script {
-                    ansiblePlaybook(
-                        credentialsId: 'ssh',
-                        disableHostKeyChecking: true,
-                        installation: 'ansible',
-                        inventory: '/etc/ansible/inventory',
-                        playbook: 'Ansible/ansible_k8s_deploy_playbook.yaml'
-                    )
+                echo 'Building Docker image'
+                sh '''
+                    cd Application
+                    docker build -t ${DOCKER_IMAGE}:${BUILD_NUMBER} .
+                '''
+            }
+        }
+
+        stage('Docker Image Scan') {
+            steps {
+                echo 'Scanning Docker image using Trivy'
+                sh '''
+                    trivy image ${DOCKER_IMAGE}:${BUILD_NUMBER}
+                '''
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                echo 'Pushing image to DockerHub'
+                withCredentials([string(credentialsId: 'dockerhub', variable: 'DOCKER_PASSWORD')]) {
+                    sh '''
+                        echo "$DOCKER_PASSWORD" | docker login -u kondepatisivanichowdary --password-stdin
+                        docker push ${DOCKER_IMAGE}:${BUILD_NUMBER}
+                    '''
                 }
             }
+        }
+
+        stage('Update K8s Manifest') {
+            steps {
+                echo 'Updating Kubernetes deployment manifest'
+                withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
+                    sh '''
+                        git config user.email "kondepatisivanichowdary@gmail.com"
+                        git config user.name "kondepatisivanichowdary"
+
+                        sed -i "s|image:.*|image: ${DOCKER_IMAGE}:${BUILD_NUMBER}|g" Ansible/k8s_deployment.yaml
+
+                        git add Ansible/k8s_deployment.yaml
+                        git commit -m "Update image tag to ${BUILD_NUMBER}"
+                        git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git HEAD:main
+                    '''
+                }
+            }
+        }
+
+        stage('Deploy to Kubernetes using Ansible') {
+            steps {
+                echo 'Deploying application to Kubernetes cluster'
+                ansiblePlaybook(
+                    credentialsId: 'ssh',
+                    disableHostKeyChecking: true,
+                    installation: 'ansible',
+                    inventory: '/etc/ansible/inventory',
+                    playbook: 'Ansible/ansible_k8s_deploy_playbook.yaml'
+                )
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'CI/CD Pipeline executed successfully 🚀'
+        }
+        failure {
+            echo 'CI/CD Pipeline failed ❌'
         }
     }
 }
