@@ -82,6 +82,14 @@ resource "aws_security_group" "jenkins_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  ingress {
+    description = "All Inbound"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   egress {
     description = "Allow all outbound"
     from_port   = 0
@@ -136,7 +144,7 @@ resource "aws_security_group" "myapp_sg" {
 
 # ------------------------- JENKINS INSTANCE -------------------------
 resource "aws_instance" "jenkins" {
-  ami                    = "ami-0fa3fe0fa7920f68e"
+  ami                    = "ami-068c0051b15cdb816"
   instance_type          = "t2.large"
   subnet_id              = aws_subnet.public_subnet.id
   key_name               = aws_key_pair.key_pair.key_name
