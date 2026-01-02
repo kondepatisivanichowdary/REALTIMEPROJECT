@@ -27,19 +27,19 @@ pipeline {
             }
         }
 
-        stage('SonarQube Analysis') {
-            steps {
-                echo 'Running SonarQube Scan'
-                withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
-                    sh '''
-                        cd Application
-                        mvn sonar:sonar \
-                          -Dsonar.host.url=http://13.222.102.97:9000 \
-                          -Dsonar.login=$SONAR_TOKEN
-                    '''
-                }
-            }
+       stage('SonarQube Analysis') {
+    steps {
+        withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
+            sh '''
+                cd Application
+                mvn org.sonarsource.scanner.maven:sonar-maven-plugin:3.9.1.2184:sonar \
+                  -Dsonar.host.url=http://13.222.102.97:9000 \
+                  -Dsonar.login=$SONAR_TOKEN
+            '''
         }
+    }
+}
+
 
         stage('Build Docker Image') {
             steps {
