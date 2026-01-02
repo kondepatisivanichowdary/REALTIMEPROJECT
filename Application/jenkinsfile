@@ -33,14 +33,14 @@ pipeline {
             steps {
                 script {
                     echo 'Building Docker Image'
-                    sh 'cd Application && docker build -t kondepatisivanichowdary/k8s:${BUILD_NUMBER} .'
+                    sh 'cd Application && docker build -t kondepatisivanichowdary/mc:${BUILD_NUMBER} .'
                 }
             }
         }
 
         stage('Docker Image Scan') {
             steps {
-                sh 'trivy image kondepatisivanichowdary/k8s:${BUILD_NUMBER}'
+                sh 'trivy image kondepatisivanichowdary/mc:${BUILD_NUMBER}'
             }
         }
 
@@ -50,7 +50,7 @@ pipeline {
                     withCredentials([string(credentialsId: 'dockerhub', variable: 'dockerhub')]) {
                         sh 'echo "${dockerhub}" | docker login -u kondepatisivanichowdary --password-stdin'
                     }
-                    sh 'docker push kondepatisivanichowdary/k8s:${BUILD_NUMBER}'
+                    sh 'docker push kondepatisivanichowdary/mc:${BUILD_NUMBER}'
                 }
             }
         }
@@ -66,7 +66,7 @@ pipeline {
                         git config user.email "kondepatisivanichowdary@gmail.com"
                         git config user.name "kondepatisivanichowdary"
 
-                        sed -i "s|k8s:.*|k8s:${BUILD_NUMBER}|g" Ansible/k8s_deployment.yaml
+                        sed -i "s|mc:.*|mc:${BUILD_NUMBER}|g" Ansible/k8s_deployment.yaml
 
                         git add .
                         git commit -m "Update deployment image tag to version ${BUILD_NUMBER}"
