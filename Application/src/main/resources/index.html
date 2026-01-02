@@ -1,40 +1,82 @@
+<%@ page language="java" contentType="text/html; charset=UTF-8"
+    pageEncoding="UTF-8"%>
+
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>ShopEase - Online Store</title>
-  <link rel="stylesheet" href="css/style.css">
+    <title>ShopKart - E-Commerce</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+        }
+        header {
+            background-color: #232f3e;
+            color: white;
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .products {
+            display: flex;
+            gap: 20px;
+            padding: 30px;
+        }
+        .card {
+            background: white;
+            padding: 20px;
+            width: 220px;
+            text-align: center;
+            border-radius: 6px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        button {
+            margin-top: 10px;
+            padding: 10px;
+            width: 100%;
+            background-color: #ff9900;
+            border: none;
+            cursor: pointer;
+        }
+    </style>
+
+    <script>
+        let cart = 0;
+        function addToCart() {
+            cart++;
+            document.getElementById("cartCount").innerText = cart;
+        }
+    </script>
 </head>
+
 <body>
 
 <header>
-  <h1>ShopEase</h1>
-  <div class="cart">🛒 Cart: <span id="cart-count">0</span></div>
+    <h2>ShopKart</h2>
+    <div>🛒 Cart: <span id="cartCount">0</span></div>
 </header>
 
-<section class="products">
-  <div class="product">
-    <img src="images/placeholder.png" alt="Product">
-    <h3>Wireless Headphones</h3>
-    <p>₹2,999</p>
-    <button onclick="addToCart()">Add to Cart</button>
-  </div>
+<div class="products">
+    <div class="card">
+        <h3>Laptop</h3>
+        <p>₹65,000</p>
+        <button onclick="addToCart()">Add to Cart</button>
+    </div>
 
-  <div class="product">
-    <img src="images/placeholder.png" alt="Product">
-    <h3>Smart Watch</h3>
-    <p>₹4,499</p>
-    <button onclick="addToCart()">Add to Cart</button>
-  </div>
+    <div class="card">
+        <h3>Smart Phone</h3>
+        <p>₹30,000</p>
+        <button onclick="addToCart()">Add to Cart</button>
+    </div>
 
-  <div class="product">
-    <img src="images/placeholder.png" alt="Product">
-    <h3>Bluetooth Speaker</h3>
-    <p>₹1,999</p>
-    <button onclick="addToCart()">Add to Cart</button>
-  </div>
-</section>
+    <div class="card">
+        <h3>Headphones</h3>
+        <p>₹2,999</p>
+        <button onclick="addToCart()">Add to Cart</button>
+    </div>
+</div>
 
-<script src="js/app.js"></script>
 </body>
 </html>
