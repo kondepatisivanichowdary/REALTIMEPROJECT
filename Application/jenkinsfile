@@ -1,116 +1,93 @@
 pipeline {
     agent any
 
-    environment {
-        DOCKER_IMAGE = "kondepatisivanichowdary/k8s"
-        GIT_REPO_NAME = "REALTIMEPROJECT"
-        GIT_USER_NAME = "kondepatisivanichowdary"
-        SONAR_HOST_URL = "http://13.222.102.97:9000"
-    }
-
     stages {
 
         stage('Checkout Code') {
             steps {
                 echo 'Checking out source code'
-                git branch: 'main',
-                    url: 'https://github.com/kondepatisivanichowdary/REALTIMEPROJECT.git'
+                git branch: 'main', url: 'https://github.com/kondepatisivanichowdary/REALTIMEPROJECT.git'
             }
         }
 
-        stage('Build Application') {
+        stage('Build Jar') {
             steps {
-                echo 'Building application using Maven'
+                echo 'Running Maven build'
+                sh 'cd Application && mvn clean package'
+            }
+        }
+
+        stage('Sonar Scan') {
+            steps {
+                echo 'Running SonarQube scan'
                 sh '''
                     cd Application
-                    mvn clean package -B
+                    mvn sonar:sonar \
+                      -Dsonar.host.url=http://13.222.102.97:9000 \
+                      -Dsonar.login=squ_a43fe8a3406372eb8f7fd85a3afe18c889e9d46f
                 '''
-            }
-        }
-
-        stage('SonarQube Analysis') {
-            steps {
-                echo 'Running SonarQube analysis'
-                withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
-                    sh '''
-                        cd Application
-                        mvn org.sonarsource.scanner.maven:sonar-maven-plugin:3.9.1.2184:sonar \
-                          -Dsonar.host.url=${SONAR_HOST_URL} \
-                          -Dsonar.login=$SONAR_TOKEN
-                    '''
-                }
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                echo 'Building Docker image'
-                sh '''
-                    cd Application
-                    docker build -t ${DOCKER_IMAGE}:${BUILD_NUMBER} .
-                '''
+                script {
+                    echo 'Building Docker Image'
+                    sh 'cd Application && docker build -t kondepatisivanichowdary/k8s:${BUILD_NUMBER} .'
+                }
             }
         }
 
         stage('Docker Image Scan') {
             steps {
-                echo 'Scanning Docker image using Trivy'
-                sh '''
-                    trivy image --exit-code 0 ${DOCKER_IMAGE}:${BUILD_NUMBER}
-                '''
+                sh 'trivy image kondepatisivanichowdary/k8s:${BUILD_NUMBER}'
             }
         }
 
-        stage('Push Docker Image') {
+        stage('Push Image to DockerHub') {
             steps {
-                echo 'Pushing image to DockerHub'
-                withCredentials([string(credentialsId: 'dockerhub', variable: 'DOCKER_PASSWORD')]) {
-                    sh '''
-                        echo "$DOCKER_PASSWORD" | docker login -u kondepatisivanichowdary --password-stdin
-                        docker push ${DOCKER_IMAGE}:${BUILD_NUMBER}
-                    '''
+                script {
+                    withCredentials([string(credentialsId: 'dockerhub', variable: 'dockerhub')]) {
+                        sh 'echo "${dockerhub}" | docker login -u kondepatisivanichowdary --password-stdin'
+                    }
+                    sh 'docker push kondepatisivanichowdary/k8s:${BUILD_NUMBER}'
                 }
             }
         }
 
-        stage('Update K8s Manifest') {
+        stage('Update Kubernetes Deployment Manifest File') {
+            environment {
+                GIT_REPO_NAME = "REALTIMEPROJECT"
+                GIT_USER_NAME = "kondepatisivanichowdary"
+            }
             steps {
-                echo 'Updating Kubernetes deployment manifest'
                 withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
                     sh '''
                         git config user.email "kondepatisivanichowdary@gmail.com"
                         git config user.name "kondepatisivanichowdary"
 
-                        sed -i "s|image:.*|image: ${DOCKER_IMAGE}:${BUILD_NUMBER}|g" Ansible/k8s_deployment.yaml
+                        sed -i "s|k8s:.*|k8s:${BUILD_NUMBER}|g" Ansible/k8s_deployment.yaml
 
-                        git add Ansible/k8s_deployment.yaml
-                        git commit -m "Update image tag to ${BUILD_NUMBER}" || echo "No changes to commit"
-                        git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git HEAD:main
+                        git add .
+                        git commit -m "Update deployment image tag to version ${BUILD_NUMBER}"
+                        git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main
                     '''
                 }
             }
         }
 
-        stage('Deploy to Kubernetes using Ansible') {
+        stage('K8s Deployment using Ansible') {
             steps {
-                echo 'Deploying application to Kubernetes cluster'
-                ansiblePlaybook(
-                    credentialsId: 'ssh',
-                    disableHostKeyChecking: true,
-                    installation: 'ansible',
-                    inventory: '/etc/ansible/inventory',
-                    playbook: 'Ansible/ansible_k8s_deploy_playbook.yaml'
-                )
+                script {
+                    ansiblePlaybook(
+                        credentialsId: 'ssh',
+                        disableHostKeyChecking: true,
+                        installation: 'ansible',
+                        inventory: '/etc/ansible/inventory',
+                        playbook: 'Ansible/ansible_k8s_deploy_playbook.yaml'
+                    )
+                }
             }
-        }
-    }
-
-    post {
-        success {
-            echo 'CI/CD Pipeline executed successfully 🚀'
-        }
-        failure {
-            echo 'CI/CD Pipeline failed ❌'
         }
     }
 }
