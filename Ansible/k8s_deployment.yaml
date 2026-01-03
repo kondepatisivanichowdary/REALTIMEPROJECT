@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: mc-app
-        image: kondepatisivanichowdary/mc:10
+        image: kondepatisivanichowdary/mc:14
         ports:
         - containerPort: 8080
 ---
