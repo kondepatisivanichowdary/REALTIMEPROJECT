@@ -23,8 +23,8 @@ pipeline {
                 sh '''
                     cd Application
                     mvn sonar:sonar \
-                      -Dsonar.host.url=http://13.222.102.97:9000 \
-                      -Dsonar.login=squ_a43fe8a3406372eb8f7fd85a3afe18c889e9d46f
+                      -Dsonar.host.url=http://3.237.203.24:9000 \
+                      -Dsonar.login=squ_0a28ef58933541a49c2fae56e1bc5f53089d3ada
                 '''
             }
         }
